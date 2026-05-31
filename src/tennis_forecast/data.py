@@ -31,6 +31,7 @@ def load_atp_matches(years: range, raw_dir: Path = RAW) -> pd.DataFrame:
         "winner_id", "winner_name", "loser_id", "loser_name",
         "w_svpt", "w_1stWon", "w_2ndWon",
         "l_svpt", "l_1stWon", "l_2ndWon",
+        "score",
     ]
     frames = []
     for year in years:
@@ -66,6 +67,13 @@ def serve_return_counts(matches: pd.DataFrame) -> pd.DataFrame:
     unrepresentative matches can be filtered later.
     """
     df = matches[matches["surface"] != "Carpet"].copy()
+
+    # Drop retirements / walkovers: their serve stats are incomplete and would
+    # bias skill estimates (e.g. "6-2 0-0 RET" — the loser barely served).
+    if "score" in df.columns:
+        score = df["score"].astype(str)
+        bad = score.str.contains("RET|W/O|WO|DEF|Walkover", case=False, na=False)
+        df = df[~bad]
 
     needed = ["w_svpt", "w_1stWon", "w_2ndWon", "l_svpt", "l_1stWon", "l_2ndWon"]
     df = df.dropna(subset=needed)
