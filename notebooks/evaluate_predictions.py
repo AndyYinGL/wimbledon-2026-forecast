@@ -49,12 +49,14 @@ def report(probs, outcomes, label):
 
 
 def evaluate_year(test_year):
-    """Train < (test_year-1), fit T on (test_year-1), evaluate on test_year."""
-    print(f"\n=== test year {test_year} "
-          f"(train <= {test_year-2}, fit T on {test_year-1}) ===")
-    train = serve_return_counts(load_atp_matches(range(2010, test_year - 1)))
+    """Train on everything up to test_year-1 (inclusive), fit T on that same
+    last year as a holdout proxy, evaluate on test_year. Uses all available
+    history (no year wasted), still strictly no future leakage into training."""
+    print(f"\n=== test year {test_year} (train <= {test_year-1}) ===")
+    train = serve_return_counts(load_atp_matches(range(2010, test_year)))
     beliefs = run_filter(train)
 
+    # fit temperature on the most recent training year as a holdout proxy
     hold = load_atp_matches(range(test_year - 1, test_year))
     hold = hold[hold["surface"] != "Carpet"]
     hp, ho = make_pred_set(hold, beliefs)
