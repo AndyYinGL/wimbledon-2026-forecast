@@ -1,52 +1,63 @@
 """A-layer: dynamic serve/return skill via an approximate Kalman filter.
 
-Each player has a latent state [serve_skill, return_skill] (+ a per-player grass
-offset that shrinks toward overall skill). State drifts as a random walk (predict
-step inflates covariance by gamma^2 * dt); each match's serve/return counts are a
-binomial-logit observation, linearised for a Gaussian (EKF-style) update.
-Szczecinski-Tihon "one-fits-all" approximate Kalman; Elo/Glicko/TrueSkill are
-special cases.
-
-This is the hardest, most error-prone module. Build it incrementally and lean on
-tests/ (synthetic-data recovery; zero-drift == static logistic regression).
-
-Link:  p_serve(A->B) = logistic(mu + serve_A - return_B + grass_term)
-mu (the ~1.29 anchor) and a zero-centred grass prior keep skills identifiable.
+STAGE 1: minimal working filter (no drift, no grass offset yet).
+  link:  p_serve(A serving to B) = logistic(MU + serve_A - return_B)
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+
+MU = math.log(0.64 / 0.36)
+
+
+def _logistic(x: float) -> float:
+    return 1.0 / (1.0 + math.exp(-x))
 
 
 @dataclass
 class SkillBelief:
-    """Gaussian belief over a player's latent skills (mean vector + covariance)."""
-    # TODO: mean (serve, return, grass offsets), covariance, last-update date.
+    """Gaussian belief over one player's [serve_skill, return_skill]."""
+    serve_mean: float = 0.0
+    return_mean: float = 0.0
+    serve_var: float = 1.0
+    return_var: float = 1.0
 
 
-def predict(belief: "SkillBelief", dt: float, gamma: float) -> "SkillBelief":
-    """Random-walk predict step: inflate covariance by gamma**2 * dt.
+def update_one_observation(server, returner, points_won, points_played):
+    """Approximate-Kalman update from one serve observation (in place)."""
+    n = points_played
+    if n <= 0:
+        return
 
-    TODO: implement; dt is elapsed CALENDAR time, not match count.
-    """
-    raise NotImplementedError
+    z_mean = server.serve_mean - returner.return_mean
+    p = _logistic(MU + z_mean)
+    p = min(max(p, 1e-6), 1 - 1e-6)
+
+    z_var = server.serve_var + returner.return_var
+    obs_var = 1.0 / (n * p * (1 - p))
+    innovation = (points_won - n * p) / (n * p * (1 - p))
+
+    K = z_var / (z_var + obs_var)
+    delta = K * innovation
+    new_z_var = (1 - K) * z_var
+
+    w_serve = server.serve_var / z_var
+    w_return = returner.return_var / z_var
+
+    server.serve_mean += w_serve * delta
+    returner.return_mean -= w_return * delta
+
+    server.serve_var = server.serve_var - w_serve * (z_var - new_z_var)
+    returner.return_var = returner.return_var - w_return * (z_var - new_z_var)
 
 
-def update(belief_server, belief_returner, points_won: int, points_played: int):
-    """EKF-style update from one binomial serve observation.
-
-    TODO: linearise the binomial-logit likelihood, compute Kalman gain, update
-    both players' beliefs (server's serve skill, returner's return skill). Guard
-    extreme counts with pseudo-counts.
-    """
-    raise NotImplementedError
-
-
-def run_filter(observations, gamma: float, tau: float):
-    """Forward pass over all observations in date order -> beliefs per player.
-
-    TODO: maintain a dict player_id -> SkillBelief; predict to each match date,
-    then update. tau controls grass-offset shrinkage (prior variance).
-    """
-    raise NotImplementedError
+def run_filter(observations):
+    """Forward pass over observations -> {player_id: SkillBelief}."""
+    beliefs = {}
+    for row in observations.itertuples(index=False):
+        s = beliefs.setdefault(row.server_id, SkillBelief())
+        r = beliefs.setdefault(row.returner_id, SkillBelief())
+        update_one_observation(s, r, int(row.points_won), int(row.points_played))
+    return beliefs
