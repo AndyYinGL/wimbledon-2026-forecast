@@ -16,25 +16,32 @@ from tennis_forecast.pricing import log_loss, brier_score
 
 
 def make_pred_set(test_df, beliefs):
-    def p_serve(s, r):
-        bs, br = beliefs.get(s), beliefs.get(r)
+    def p_serve(server, returner, grass):
+        bs, br = beliefs.get(server), beliefs.get(returner)
         if bs is None or br is None:
             return None
-        return _logistic(MU + bs.serve_mean - br.return_mean)
+        s = bs.serve_mean
+        r = br.return_mean
+        if grass:
+            s += bs.serve_grass_mean
+            r += br.return_grass_mean
+        return _logistic(MU + s - r)
+
     probs, outs = [], []
-    for r in test_df.itertuples(index=False):
-        if r.winner_id < r.loser_id:
-            a, b, w = r.winner_id, r.loser_id, 1
+    for row in test_df.itertuples(index=False):
+        if row.winner_id < row.loser_id:
+            a, b, a_won = row.winner_id, row.loser_id, 1
         else:
-            a, b, w = r.loser_id, r.winner_id, 0
-        pa, pb = p_serve(a, b), p_serve(b, a)
+            a, b, a_won = row.loser_id, row.winner_id, 0
+        grass = (row.surface == "Grass")
+        pa = p_serve(a, b, grass)
+        pb = p_serve(b, a, grass)
         if pa is None or pb is None:
             continue
-        best_of = 5 if r.tourney_level == "G" else 3
+        best_of = 5 if row.tourney_level == "G" else 3
         probs.append(match_win_prob(pa, pb, best_of))
-        outs.append(w)
+        outs.append(a_won)
     return probs, outs
-
 
 TEST_YEARS = [2022, 2023, 2024, 2025]
 GAMMAS = [0.05, 0.08, 0.10, 0.12, 0.15, 0.20]

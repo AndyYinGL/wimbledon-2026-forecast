@@ -86,3 +86,32 @@ def reliability_curve(prob_pred, outcome, n_bins: int = 10):
             )
         )
     return rows
+# --- Temperature scaling (calibration) --------------------------------------
+
+def _logit(p):
+    p = min(max(p, 1e-9), 1 - 1e-9)
+    return math.log(p / (1 - p))
+
+
+def apply_temperature(prob, T):
+    """Soften (T>1) or sharpen (T<1) a probability via temperature scaling."""
+    z = _logit(prob) / T
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def fit_temperature(probs, outcomes, grid=None):
+    """Find the temperature T that minimises log-loss on (probs, outcomes).
+
+    T > 1 pulls over-confident probabilities toward 0.5 (fixes over-confidence).
+    Fit this on a holdout (e.g. 2024) and apply to the test set (2025) to avoid
+    leakage.
+    """
+    if grid is None:
+        grid = [0.5 + 0.05 * i for i in range(150)]  # 0.5 .. 7.95
+    best_T, best_ll = 1.0, float("inf")
+    for T in grid:
+        scaled = [apply_temperature(p, T) for p in probs]
+        ll = log_loss(scaled, outcomes)
+        if ll < best_ll:
+            best_ll, best_T = ll, T
+    return best_T, best_ll
