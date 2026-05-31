@@ -1,90 +1,120 @@
-# Wimbledon 2026 — Men's Singles Forecasting & Pricing Engine
+# Wimbledon 2026 Men's Singles — A Calibrated Forecasting Model
 
-A live, forward-simulation engine that prices the **2026 Wimbledon men's singles**
-as the tournament unfolds. From the current draw it produces the full
-distribution of outcomes — each player's probability of reaching every round and
-of winning the title — quotes markets two-sided like a liquidity provider, and
-tracks how well-**calibrated** its probabilities are against both the actual
-results and the betting market.
+A from-scratch probabilistic forecasting model for ATP men's singles, built as a
+quantitative research portfolio piece. The emphasis is **calibration** — not just
+predicting the winner, but producing match-win probabilities that are *trustworthy*
+and could be used to price a market.
 
-The guiding question is a market-maker's, not a punter's: *how should the
-distribution of game events be priced, and where does the market's pricing
-break down?* — evaluated live and out-of-sample rather than on backtested
-betting returns.
+The headline deliverable is a calibration study, not a betting record: a market
+maker cares whether a stated 70% really happens 70% of the time.
 
-## Why grass, why this year
+## Approach
 
-Grass is the most data-sparse of the three surfaces — the grass season is short,
-so any player's grass-specific record is thin. That makes naive surface-splitting
-(the approach that *added* noise in earlier work) actively harmful here, and it
-is exactly why the model treats grass skill as a **per-player offset that shrinks
-toward overall skill** when grass data is scarce. The hard problem and the
-modelling choice are matched on purpose.
+The model has two layers.
 
-## Method
+**1. Skill layer — a dynamic Bayesian serve/return filter.**
+Each player holds a Gaussian belief over two latent skills: serve and return.
+Every match contributes a binomial observation (serve points won / played), which
+updates both the server's serve skill and the returner's return skill via an
+approximate Kalman update (linearising the binomial-logit likelihood). Skills
+drift over time as a random walk, so the model tracks form, ageing, and layoffs.
 
-A two-layer design, chosen so the same point-level structure serves as both the
-fitting likelihood and the forecasting simulator:
+A per-player **grass offset** sits on top of overall skill, with a zero-mean prior
+that shrinks toward overall skill when grass data is thin — the central modelling
+idea, since grass is only ~10% of tour matches.
 
-**Strength layer (A).** Each player carries a latent *serve* skill and *return*
-skill that drift over time (random walk), plus a per-player grass offset that
-shrinks toward overall skill. These are inferred online with a principled
-approximate Kalman filter (a regular linearisation of the binomial–logit
-likelihood, in the Szczecinski–Tihon "one-fits-all" sense; Elo, Glicko and
-TrueSkill are all special cases of this family). Observations are **per-match
-serve/return point counts** (SPW/RPW), which identify serve and return ability
-separately.
+**2. Distribution layer — a hierarchical Markov match engine.**
+Per-point serve probabilities feed an analytic game → set → match model
+(Klaassen–Magnus), giving the full match-win probability and the distribution of
+outcomes, not just a point estimate.
 
-**Distribution layer (B).** A hierarchical Markov model (Klaassen–Magnus) turns
-the two players' serve point-win probabilities into exact win probabilities at
-game / set / match level and — crucially — from *any* score, the basis for
-in-play pricing. A Monte Carlo simulator reproduces the same scoring rules
-exactly and validates the analytical engine; it also rolls the remaining draw
-forward many times to produce the tournament-level distribution.
+**Calibration.** Raw probabilities turn out to be over-confident (the Markov
+structure amplifies small per-point edges). Temperature scaling, fit on a holdout
+year, restores calibration.
 
-**Pricing & calibration.** Probabilities become two-sided quotes with a correct
-bilateral overround; the headline deliverable is a calibration study (reliability
-curves, log-loss, Brier) on a large historical backtest, with Wimbledon serving
-as the live, genuinely out-of-sample demonstration.
+## Results (strictly out-of-sample, no look-ahead)
 
-## Architecture
+The filter is only ever trained on matches *preceding* the evaluation period.
 
-Engines live in importable, tested modules; analysis and narrative live in notebooks that import them. (Stateful, recursive code does not belong in notebook cells.)
+| Test year | accuracy | log-loss (raw) | log-loss (calibrated) | temperature |
+|-----------|----------|----------------|-----------------------|-------------|
+| 2024      | 0.63     | 0.71           | 0.67                  | 1.35        |
+| 2025      | 0.62     | 0.71           | 0.67                  | 1.30        |
 
-    src/tennis_forecast/
-      markov.py     # analytical game/set/match/tiebreak win prob — built + tested
-      simulate.py   # Monte Carlo match sim + tournament sim — built + tested
-      filter.py     # approximate-Kalman serve/return skill filter (A-layer)
-      pipeline.py   # live round-by-round update + as-of-date leakage guards
-      ratings.py    # priors / cold-start seeding from ranking
-      data.py       # Sackmann history, live draw/results, market odds
-      pricing.py    # de-vig, two-sided quotes, log-loss / Brier / reliability — built
-    tests/          # cross-validation: analytical == Monte Carlo, and more
-    notebooks/      # data exploration, calibration study, live Wimbledon forecast
-## Status
+~62–63% accuracy is in line with the academic literature for pre-match ATP models.
 
-- Analytical Markov engine, validated against an independent Monte Carlo
-  simulator (`tests/`).
-- Tournament Monte Carlo + pricing / calibration utilities.
-- Approximate-Kalman serve/return filter (A-layer).
-- Data pipeline (Sackmann + live source), calibration backtest, live forecast.
+See [`notebooks/03_calibration_study.ipynb`](notebooks/03_calibration_study.ipynb)
+for the reliability diagrams and tuning figures.
 
-## Data
+## Key findings
 
-- **History:** Jeff Sackmann's open ATP datasets (`tennis_atp`) — match-level
-  serve/return statistics, the de facto standard for tennis research. *(CC
-  BY-NC-SA; research / non-commercial use.)*
-- **Live:** a tennis data API for the Wimbledon draw, results and in-tournament
-  serve stats (Sackmann lags real time).
-- **Market:** historical closing odds for the model-vs-market calibration study.
+1. **The serve/return filter recovers true skill.** On synthetic data with known
+   skills it recovers serve and return ratings at correlation > 0.95.
 
-## Key references
+2. **Raw probabilities are over-confident; calibration fixes it.** The reliability
+   curve initially bows away from the diagonal (a predicted 0.9 wins ~0.78 of the
+   time). Temperature scaling pulls it back without changing accuracy.
 
-Klaassen & Magnus (2003); Barnett & Clarke (2005); Knottenbelt et al. (2012);
-Ingram (2019); Kovalchik & Reid (2018, 2019); Angelini, Candila & De Angelis
-(2022); Duffield, Power & Rimella (2023/24); Szczecinski & Tihon (2023);
-Gollub (2021).
+3. **More data beats post-hoc patching.** Using the full training history dropped
+   the needed temperature from ~3.5 to ~1.3 — the raw probabilities became nearly
+   well-calibrated on their own, showing the over-confidence was largely an
+   estimation-noise problem, not a structural one.
+
+4. **Surface-specific effects cannot be reliably estimated from sparse grass data.**
+   A τ² grid search shows that *stronger* shrinkage of the grass offset always
+   helps; the model is best off leaning almost entirely on overall skill. This is
+   a deliberate, data-driven choice — and exactly the kind of "when not to trust a
+   signal" judgment the shrinkage prior is designed to make.
+
+## Project structure
+src/tennis_forecast/
+data.py       load ATP match data, build serve/return observations, market odds
+filter.py     the Bayesian serve/return Kalman filter (skill layer)
+markov.py     analytic game/set/match win-probability engine
+simulate.py   Monte-Carlo match & tournament simulation
+pricing.py    de-vig, log-loss / Brier, reliability curve, temperature scaling
+tests/
+test_filter.py   synthetic-recovery, drift, and shrinkage tests
+notebooks/
+explore_filter.py          sanity-check skill rankings on real data
+evaluate_predictions.py    walk-forward out-of-sample evaluation
+tune_gamma.py / tune_tau.py / tune_joint.py   hyperparameter studies
+03_calibration_study.ipynb headline calibration figures
+## Methodology notes
+
+- **Inference:** approximate Kalman filter (linearised binomial-logit likelihood),
+  in the spirit of Szczecinski–Tihon (2023) and state-space tennis rating work.
+- **Match model:** Klaassen–Magnus point-based Markov chain (points assumed i.i.d.
+  within a match — a known simplification that under-weights "big-point" ability).
+- **Hyperparameters:** drift γ = 0.10 and grass-shrinkage τ² = 0.005, both chosen
+  by walk-forward cross-validation on out-of-sample log-loss.
+- **No look-ahead:** temperature is fit on the last training year as a holdout;
+  the test year is never seen during training.
+
+## Reproducing
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Data is not committed. Download:
+- ATP match data: [Jeff Sackmann's tennis_atp](https://github.com/JeffSackmann/tennis_atp)
+  → `data/raw/`
+- Closing odds (optional, for the market study):
+  [tennis-data.co.uk](http://www.tennis-data.co.uk/alldata.php) → `data/raw/odds/`
+
+```bash
+python tests/test_filter.py            # validate the filter
+python notebooks/evaluate_predictions.py   # out-of-sample evaluation
+```
+
+## Data sources
+
+- Match results & serve statistics: Jeff Sackmann `tennis_atp` (CC BY-NC-SA)
+- Closing betting odds: tennis-data.co.uk
 
 ## License
 
-Code: MIT. Tennis data remains under its original license (Sackmann: CC BY-NC-SA).
+Code under MIT (see `LICENSE`). Data is subject to its providers' licenses and is
+not redistributed here.
