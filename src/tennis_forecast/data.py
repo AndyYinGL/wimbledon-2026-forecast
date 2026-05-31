@@ -18,14 +18,39 @@ PROCESSED = Path(__file__).resolve().parents[2] / "data" / "processed"
 ATP_SERVE_SUM = 1.29
 
 
-def load_atp_matches(years: range) -> pd.DataFrame:
+def load_atp_matches(years: range, raw_dir: Path = RAW) -> pd.DataFrame:
     """Load + concat Sackmann atp_matches_{year}.csv over `years`.
 
-    TODO: normalise player ids; keep date, surface, tourney_level, and serve
-    stats (w_svpt, w_1stWon, w_2ndWon, l_svpt, l_1stWon, l_2ndWon, ...).
-    Returns one row per match.
+    Returns one row per match with normalised columns:
+      tourney_date (datetime), surface, tourney_level,
+      winner_id, winner_name, loser_id, loser_name,
+      and serve stats: w_svpt, w_1stWon, w_2ndWon, l_svpt, l_1stWon, l_2ndWon.
     """
-    raise NotImplementedError
+    keep = [
+        "tourney_date", "surface", "tourney_level",
+        "winner_id", "winner_name", "loser_id", "loser_name",
+        "w_svpt", "w_1stWon", "w_2ndWon",
+        "l_svpt", "l_1stWon", "l_2ndWon",
+    ]
+    frames = []
+    for year in years:
+        path = raw_dir / f"atp_matches_{year}.csv"
+        if not path.exists():
+            print(f"  skip (not found): {path.name}")
+            continue
+        df = pd.read_csv(path, usecols=lambda c: c in keep)
+        df["year"] = year
+        frames.append(df)
+
+    if not frames:
+        raise FileNotFoundError(f"No atp_matches_*.csv found in {raw_dir}")
+
+    matches = pd.concat(frames, ignore_index=True)
+    matches["tourney_date"] = pd.to_datetime(
+        matches["tourney_date"], format="%Y%m%d"
+    )
+    matches = matches.sort_values("tourney_date").reset_index(drop=True)
+    return matches
 
 
 def serve_return_counts(matches: pd.DataFrame) -> pd.DataFrame:
