@@ -49,28 +49,25 @@ as the live, genuinely out-of-sample demonstration.
 
 ## Architecture
 
-Engines live in importable, tested modules; analysis and narrative live in
-notebooks that import them. (Stateful, recursive code does not belong in
-notebook cells.)
-```
-src/tennis_forecast/
-markov.py     # analytical game/set/match/tiebreak win prob — built + tested
-simulate.py   # Monte Carlo match sim + tournament sim — built + tested
-filter.py     # approximate-Kalman serve/return skill filter (A-layer)
-pipeline.py   # live round-by-round update + as-of-date leakage guards
-ratings.py    # priors / cold-start seeding from ranking
-data.py       # Sackmann history, live draw/results, market odds
-pricing.py    # de-vig, two-sided quotes, log-loss / Brier / reliability — built
-tests/          # cross-validation: analytical == Monte Carlo, and more
-notebooks/      # data exploration, calibration study, live Wimbledon forecast
-```
+Engines live in importable, tested modules; analysis and narrative live in notebooks that import them. (Stateful, recursive code does not belong in notebook cells.)
+
+    src/tennis_forecast/
+      markov.py     # analytical game/set/match/tiebreak win prob — built + tested
+      simulate.py   # Monte Carlo match sim + tournament sim — built + tested
+      filter.py     # approximate-Kalman serve/return skill filter (A-layer)
+      pipeline.py   # live round-by-round update + as-of-date leakage guards
+      ratings.py    # priors / cold-start seeding from ranking
+      data.py       # Sackmann history, live draw/results, market odds
+      pricing.py    # de-vig, two-sided quotes, log-loss / Brier / reliability — built
+    tests/          # cross-validation: analytical == Monte Carlo, and more
+    notebooks/      # data exploration, calibration study, live Wimbledon forecast
 ## Status
 
-- ✅ Analytical Markov engine, validated against an independent Monte Carlo
+- Analytical Markov engine, validated against an independent Monte Carlo
   simulator (`tests/`).
-- ✅ Tournament Monte Carlo + pricing / calibration utilities.
-- ⏳ Approximate-Kalman serve/return filter (A-layer).
-- ⏳ Data pipeline (Sackmann + live source), calibration backtest, live forecast.
+- Tournament Monte Carlo + pricing / calibration utilities.
+- Approximate-Kalman serve/return filter (A-layer).
+- Data pipeline (Sackmann + live source), calibration backtest, live forecast.
 
 ## Data
 
