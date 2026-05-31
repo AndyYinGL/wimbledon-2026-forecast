@@ -36,6 +36,7 @@ def _make_synthetic(n_players=30, n_matches=4000, seed=0):
             won = sum(1 for _ in range(n) if rng.random() < p)
             rows.append({
                 "tourney_date": pd.Timestamp("2015-01-01"),
+                "surface": "Hard",
                 "server_id": server, "returner_id": returner,
                 "points_won": won, "points_played": n,
             })
@@ -97,6 +98,7 @@ def test_drift_tracks_changing_skill():
             won = sum(1 for _ in range(n) if rng.random() < p)
             rows.append({
                 "tourney_date": date,
+                "surface": "Hard",
                 "server_id": server, "returner_id": returner,
                 "points_won": won, "points_played": n,
             })
@@ -113,7 +115,47 @@ def test_drift_tracks_changing_skill():
     print(f"star serve skill  early: {early_skill:.3f}   late: {late_skill:.3f}")
     assert late_skill > early_skill + 0.2, (early_skill, late_skill)
 
+def test_grass_shrinkage():
+    """A player with a genuine grass bonus but FEW grass matches: the grass
+    offset should move in the right direction but stay small (shrunk), not blow
+    up. A player with NO grass data should keep a ~0 grass offset."""
+    import pandas as pd
+    rng = random.Random(3)
+    from tennis_forecast.filter import run_filter
+
+    star = 0
+    rows = []
+    d = pd.Timestamp("2018-06-01")
+    # 200 hard-court matches (lots of overall data), grass offset should stay ~0
+    for _ in range(200):
+        opp = rng.randint(1, 15)
+        for srv, ret in [(star, opp), (opp, star)]:
+            n = 60
+            p = _logistic(MU + 0.0)
+            won = sum(1 for _ in range(n) if rng.random() < p)
+            rows.append({"tourney_date": d, "surface": "Hard",
+                         "server_id": srv, "returner_id": ret,
+                         "points_won": won, "points_played": n})
+    # only 8 grass matches, but star serves MUCH better on grass (true +0.6)
+    for _ in range(8):
+        opp = rng.randint(1, 15)
+        n = 60
+        p = _logistic(MU + 0.6)
+        won = sum(1 for _ in range(n) if rng.random() < p)
+        rows.append({"tourney_date": d, "surface": "Grass",
+                     "server_id": star, "returner_id": opp,
+                     "points_won": won, "points_played": n})
+
+    obs = pd.DataFrame(rows)
+    b = run_filter(obs)[star]
+    print(f"grass serve offset (true +0.6, only 8 matches): {b.serve_grass_mean:.3f}")
+    # Shrinkage: offset is positive (caught the grass bonus) but well below the
+    # raw +0.6 (pulled toward 0 because grass data is thin).
+    assert b.serve_grass_mean > 0.05, b.serve_grass_mean
+    assert b.serve_grass_mean < 0.6, b.serve_grass_mean
+
 if __name__ == "__main__":
     test_synthetic_recovery()
     test_drift_tracks_changing_skill()
-    print("\nPASS: filter recovers skills and tracks drift over time.")
+    test_grass_shrinkage()
+    print("\nPASS: recovery, drift, and grass shrinkage all work.")
