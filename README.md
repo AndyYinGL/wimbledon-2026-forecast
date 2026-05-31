@@ -52,7 +52,7 @@ as the live, genuinely out-of-sample demonstration.
 Engines live in importable, tested modules; analysis and narrative live in
 notebooks that import them. (Stateful, recursive code does not belong in
 notebook cells.)
-'''
+```
 src/tennis_forecast/
 markov.py     # analytical game/set/match/tiebreak win prob — built + tested
 simulate.py   # Monte Carlo match sim + tournament sim — built + tested
@@ -63,7 +63,7 @@ data.py       # Sackmann history, live draw/results, market odds
 pricing.py    # de-vig, two-sided quotes, log-loss / Brier / reliability — built
 tests/          # cross-validation: analytical == Monte Carlo, and more
 notebooks/      # data exploration, calibration study, live Wimbledon forecast
-'''
+```
 ## Status
 
 - ✅ Analytical Markov engine, validated against an independent Monte Carlo
