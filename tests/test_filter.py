@@ -35,6 +35,7 @@ def _make_synthetic(n_players=30, n_matches=4000, seed=0):
             p = _logistic(MU + true_serve[server] - true_return[returner])
             won = sum(1 for _ in range(n) if rng.random() < p)
             rows.append({
+                "tourney_date": pd.Timestamp("2015-01-01"),
                 "server_id": server, "returner_id": returner,
                 "points_won": won, "points_played": n,
             })
@@ -71,7 +72,48 @@ def test_synthetic_recovery():
     assert corr_serve > 0.9, corr_serve
     assert corr_return > 0.9, corr_return
 
+def test_drift_tracks_changing_skill():
+    """A player's true serve skill RISES over time; with drift the filter should
+    estimate them stronger in the late period than the early period."""
+    import pandas as pd
+    rng = random.Random(7)
+    from tennis_forecast.filter import run_filter
+
+    star = 0          # the improving player
+    n_others = 20
+    rows = []
+    start = pd.Timestamp("2015-01-01")
+
+    for week in range(150):                       # ~3 years of weekly matches
+        date = start + pd.Timedelta(weeks=week)
+        true_serve_star = -0.4 + 0.8 * (week / 150)   # rises from -0.4 to +0.4
+        opp = rng.randint(1, n_others)
+        for server, returner, s_skill in [
+            (star, opp, true_serve_star),
+            (opp, star, 0.0),
+        ]:
+            n = 60
+            p = _logistic(MU + s_skill - 0.0)
+            won = sum(1 for _ in range(n) if rng.random() < p)
+            rows.append({
+                "tourney_date": date,
+                "server_id": server, "returner_id": returner,
+                "points_won": won, "points_played": n,
+            })
+
+    obs = pd.DataFrame(rows)
+
+    # Filter on the first third vs the full history; the star's serve estimate
+    # should be clearly higher at the end than early on.
+    early = run_filter(obs[obs["tourney_date"] < start + pd.Timedelta(weeks=50)])
+    late = run_filter(obs)
+
+    early_skill = early[star].serve_mean
+    late_skill = late[star].serve_mean
+    print(f"star serve skill  early: {early_skill:.3f}   late: {late_skill:.3f}")
+    assert late_skill > early_skill + 0.2, (early_skill, late_skill)
 
 if __name__ == "__main__":
     test_synthetic_recovery()
-    print("\nPASS: filter recovers known serve & return skills.")
+    test_drift_tracks_changing_skill()
+    print("\nPASS: filter recovers skills and tracks drift over time.")
