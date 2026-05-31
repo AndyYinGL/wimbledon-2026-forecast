@@ -29,8 +29,8 @@ class SkillBelief:
     return_var: float = 1.0
     serve_grass_mean: float = 0.0
     return_grass_mean: float = 0.0
-    serve_grass_var: float = 0.05
-    return_grass_var: float = 0.05
+    serve_grass_var: float = 0.005
+    return_grass_var: float = 0.005
     last_date: object = None
 
 
@@ -89,7 +89,7 @@ def update_one_observation(server, returner, points_won, points_played, grass):
         returner.return_grass_var -= w * var_reduction
 
 
-def run_filter(observations, gamma=0.1, tau2=0.05):
+def run_filter(observations, gamma=0.1, tau2=0.005):
     """Forward pass with drift + grass shrinkage -> {player_id: SkillBelief}.
 
     `observations` needs columns: tourney_date, surface, server_id,
