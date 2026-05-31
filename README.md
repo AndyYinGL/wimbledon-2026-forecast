@@ -43,8 +43,18 @@ The filter is only ever trained on matches *preceding* the evaluation period.
 
 ~62–63% accuracy is in line with the academic literature for pre-match ATP models.
 
+**Calibration.** The raw model is over-confident; temperature scaling restores it:
+
+![Reliability diagram](notebooks/figures/reliability.png)
+
+**Hyperparameter tuning** (walk-forward, out-of-sample log-loss):
+
+![Gamma scan](notebooks/figures/gamma_scan.png)
+
+![Tau2 scan](notebooks/figures/tau2_scan.png)
+
 See [`notebooks/03_calibration_study.ipynb`](notebooks/03_calibration_study.ipynb)
-for the reliability diagrams and tuning figures.
+for the full study.
 
 ## Key findings
 
