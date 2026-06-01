@@ -97,6 +97,18 @@ See [`notebooks/model_vs_market.py`](notebooks/model_vs_market.py).
 
 ## Project structure
 
+- `src/tennis_forecast/data.py` — load match data, serve/return observations, odds
+- `src/tennis_forecast/filter.py` — Bayesian serve/return Kalman filter (skill layer)
+- `src/tennis_forecast/markov.py` — game/set/match win-probability engine
+- `src/tennis_forecast/simulate.py` — Monte-Carlo match & tournament simulation
+- `src/tennis_forecast/pricing.py` — de-vig, log-loss, Brier, reliability, temperature scaling
+- `tests/test_filter.py` — synthetic-recovery, drift, and shrinkage tests
+- `notebooks/explore_filter.py` — sanity-check skill rankings on real data
+- `notebooks/evaluate_predictions.py` — walk-forward out-of-sample evaluation
+- `notebooks/tune_gamma.py`, `tune_tau.py`, `tune_joint.py` — hyperparameter studies
+- `notebooks/model_vs_market.py` — model probabilities vs Pinnacle closing odds
+- `notebooks/03_calibration_study.ipynb` — calibration figures
+
 ## Methodology notes
 
 - **Inference:** approximate Kalman filter (linearised binomial-logit likelihood),
