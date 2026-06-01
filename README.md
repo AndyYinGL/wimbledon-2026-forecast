@@ -75,6 +75,25 @@ for the full study.
    helps; the model is best off leaning almost entirely on overall skill. This is
    a deliberate, data-driven choice — and exactly the kind of "when not to trust a
    signal" judgment the shrinkage prior is designed to make.
+   
+## Model vs market
+
+The real test for a pricing model is the market. On 1915 matched 2025 matches
+(paired by player and year-month to disambiguate repeat meetings), the model is
+compared against Pinnacle closing odds (de-vigged):
+
+| | log-loss | Brier | accuracy |
+|---|---|---|---|
+| model     | 0.656 | 0.230 | 0.622 |
+| Pinnacle  | 0.605 | 0.210 | 0.669 |
+
+The model does **not** beat the market — as expected; a top sharp book is very
+hard to beat. But an independent from-scratch model lands within ~0.05 log-loss
+of Pinnacle, correlating at 0.73 — it captures most of the market's signal while
+retaining independent information. Honestly quantifying the gap to a sharp
+benchmark matters more than claiming to beat it.
+
+See [`notebooks/model_vs_market.py`](notebooks/model_vs_market.py).
 
 ## Project structure
 src/tennis_forecast/
