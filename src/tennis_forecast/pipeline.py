@@ -9,13 +9,24 @@ probabilities, log them for calibration tracking.
 from __future__ import annotations
 
 
-def skills_to_pserve(belief_a, belief_b, surface: str = "grass"):
-    """Map two players' skill beliefs to their serve point-win probs (p_a, p_b).
+def skills_to_pserve(server_belief, returner_belief, grass: bool = True) -> float:
+    """Map two players' skill beliefs to the server's point-win prob p_serve.
 
-    TODO: apply the logistic link with the grass term; optionally propagate
-    posterior uncertainty by sampling for credible intervals.
+    Reuses the exact link from filter.update_one_observation so the predicted
+    p_serve is on the same scale the filter trained against:
+      non-grass: logistic(MU + serve_S - return_R)
+      grass:     logistic(MU + (serve_S + serve_grass_S)
+                              - (return_R + return_grass_R))
+    Point estimate only -- posterior variance is not propagated here.
     """
-    raise NotImplementedError
+    from .filter import MU, _logistic
+
+    if grass:
+        z = (server_belief.serve_mean + server_belief.serve_grass_mean) \
+            - (returner_belief.return_mean + returner_belief.return_grass_mean)
+    else:
+        z = server_belief.serve_mean - returner_belief.return_mean
+    return _logistic(MU + z)
 
 
 def forecast_remaining_draw(draw, beliefs, as_of_date):

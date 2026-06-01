@@ -216,5 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
 # Project data (large raw downloads — never commit)
-data/
+data/*
+!data/raw/
+data/raw/*
+
+!data/raw/pbp_name_overrides.csv
