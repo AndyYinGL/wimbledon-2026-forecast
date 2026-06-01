@@ -75,7 +75,7 @@ for the full study.
    helps; the model is best off leaning almost entirely on overall skill. This is
    a deliberate, data-driven choice — and exactly the kind of "when not to trust a
    signal" judgment the shrinkage prior is designed to make.
-   
+
 ## Model vs market
 
 The real test for a pricing model is the market. On 1915 matched 2025 matches
@@ -96,6 +96,7 @@ benchmark matters more than claiming to beat it.
 See [`notebooks/model_vs_market.py`](notebooks/model_vs_market.py).
 
 ## Project structure
+```
 src/tennis_forecast/
 data.py       load ATP match data, build serve/return observations, market odds
 filter.py     the Bayesian serve/return Kalman filter (skill layer)
@@ -109,6 +110,7 @@ explore_filter.py          sanity-check skill rankings on real data
 evaluate_predictions.py    walk-forward out-of-sample evaluation
 tune_gamma.py / tune_tau.py / tune_joint.py   hyperparameter studies
 03_calibration_study.ipynb headline calibration figures
+​```
 ## Methodology notes
 
 - **Inference:** approximate Kalman filter (linearised binomial-logit likelihood),
