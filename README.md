@@ -115,6 +115,16 @@ See [`notebooks/model_vs_market.py`](notebooks/model_vs_market.py).
   in the spirit of Szczecinski–Tihon (2023) and state-space tennis rating work.
 - **Match model:** Klaassen–Magnus point-based Markov chain (points assumed i.i.d.
   within a match — a known simplification that under-weights "big-point" ability).
+- **Known limitation — "big-point" ability.** The i.i.d. assumption means the
+  model measures point-win ability, not the ability to win the *important* points
+  (break points, tiebreaks, deciding sets), so it under-rates clutch players
+  (e.g. Alcaraz). Notably, Klaassen & Magnus (2001) themselves show points are
+  *not* i.i.d. — momentum and point-importance effects exist — but that the
+  deviations are small enough for i.i.d. to remain a good approximation. A natural
+  extension is a per-player clutch adjustment fit from point-by-point data
+  (Sackmann's slam point-by-point dataset), letting serve probability vary by
+  point importance; a fuller treatment would drop i.i.d. for a dynamic/sequential
+  model (e.g. XGBoost or LSTM momentum models).
 - **Hyperparameters:** drift γ = 0.10 and grass-shrinkage τ² = 0.005, both chosen
   by walk-forward cross-validation on out-of-sample log-loss.
 - **No look-ahead:** temperature is fit on the last training year as a holdout;
