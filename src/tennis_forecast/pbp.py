@@ -15,6 +15,10 @@ Boundaries enforced here:
     keep men's singles only (match_num first digit '1'); drop matches whose
     players have no belief (e.g. veterans outside the active pool).
 
+Slam matching uses the exact "-{slam}-" pattern, NOT a substring test, because
+"usopen" is a substring of "ausopen" -- a plain `in` check silently pulled
+Australian Open files in and mislabelled them as US Open.
+
 This version builds the clean base only. Derived layer-2/3 features (previous
 point, streaks, break points, ...) are added in a separate step so the
 within-match causal boundary can be handled explicitly there.
@@ -61,10 +65,18 @@ def _belief_snapshot(year: int):
     return run_filter(obs)
 
 
+def _slam_of(name: str) -> str | None:
+    """Exact slam from a filename, avoiding the usopen/ausopen substring trap."""
+    for s in SLAMS:
+        if f"-{s}-" in name:
+            return s
+    return None
+
+
 def _pbp_files() -> list[Path]:
     return sorted(
         p for p in PBP.glob("*-points.csv")
-        if any(s in p.name for s in SLAMS)
+        if _slam_of(p.name) is not None
         and "doubles" not in p.name and "mixed" not in p.name
     )
 
@@ -84,7 +96,7 @@ def build_dataset(write: bool = True) -> pd.DataFrame:
         year_files = [p for p in files if p.name.startswith(str(year))]
 
         for pts_path in year_files:
-            slam = next(s for s in SLAMS if s in pts_path.name)
+            slam = _slam_of(pts_path.name)
             grass = GRASS[slam]
             matches_path = PBP / pts_path.name.replace("-points.csv", "-matches.csv")
             if not matches_path.exists():
