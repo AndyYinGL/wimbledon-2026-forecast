@@ -222,4 +222,6 @@ data/*
 !data/raw/
 data/raw/*
 
+# exceptions: hand-verified name override tables must be tracked for reproducibility
 !data/raw/pbp_name_overrides.csv
+!data/raw/odds_name_overrides.csv
